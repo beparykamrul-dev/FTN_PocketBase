@@ -1,5 +1,5 @@
-const CACHE='ftn-local-shell-v2';
-const CORE=['/','/workspace.html','/note-editor.html','/ftn-workspace.css','/ftn-workspace.js','/ftn-note-editor.js','/ftn-preview.js','/ftn-ux.js','/ftn-ux.css','/pwa.js','/manifest.webmanifest','/ftn-icon.svg'];
+const CACHE='ftn-local-shell-v3';
+const CORE=['/','/workspace.html','/note-editor.html','/ftn-workspace.css','/ftn-workspace.js','/ftn-note-editor.js','/ftn-file-v2.js','/ftn-preview.js','/ftn-ux.js','/ftn-ux.css','/pwa.js','/manifest.webmanifest','/ftn-icon.svg'];
 const isSameOrigin=u=>u.origin===self.location.origin;
 const isApi=u=>u.pathname.startsWith('/api/')||u.pathname.startsWith('/_/');
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
