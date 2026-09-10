@@ -1,0 +1,38 @@
+name: FTN Local CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python compile
+        run: python -m py_compile ai_service/app.py
+      - name: Shell syntax
+        run: bash -n FTN_PocketBase.sh
+      - name: HTML JavaScript syntax
+        run: |
+          node --check <(python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('pb_public/index.html').read_text()
+          m=re.search(r'<script>([\s\S]*?)</script>', s)
+          assert m, 'script block missing'
+          print(m.group(1))
+          PY
+          )
+      - name: PocketBase migration smoke test
+        run: |
+          curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.40.3/pocketbase_0.40.3_linux_amd64.zip -o /tmp/pb.zip
+          unzip -q /tmp/pb.zip -d /tmp/pb
+          mkdir -p /tmp/pbdata
+          /tmp/pb/pocketbase migrate up --dir=/tmp/pbdata --migrationsDir="$GITHUB_WORKSPACE/pb_migrations"
+          test -f /tmp/pbdata/data.db
