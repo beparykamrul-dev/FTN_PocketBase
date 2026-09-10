@@ -1,114 +1,87 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# ১. সিস্টেম আপডেট এবং প্রয়োজনীয় প্যাকেজ ইন্সটল
-echo "Updating system and installing dependencies..."
-sudo apt update && sudo apt install -y unzip curl git nginx certbot python3-certbot-nginx
+APP=/opt/ftn-pocketbase
+PB_VERSION="${PB_VERSION:-0.40.3}"
+PB_ARCH="${PB_ARCH:-amd64}"
+AI_PORT="${AI_PORT:-8000}"
+PB_PORT="${PB_PORT:-8090}"
+REPO_URL="https://github.com/beparykamrul-dev/FTN_PocketBase.git"
 
-# ২. প্রজেক্ট ডিরেক্টরি তৈরি
-echo "Creating project directories..."
-mkdir -p ~/FTN_PocketBase/pb_public
-cd ~/FTN_PocketBase
+log(){ printf '\n[%s] %s\n' "FTN" "$*"; }
+require_root(){ [[ ${EUID} -eq 0 ]] || { echo "Run as root: sudo bash FTN_PocketBase.sh"; exit 1; }; }
 
-# ৩. পকেটবেস ডাউনলোড (Linux 64-bit এর জন্য)
-echo "Downloading PocketBase binary..."
-if [ ! -f "pocketbase" ]; then
-    curl -L https://github.com/pocketbase/pocketbase/releases/download/v0.22.21/pocketbase_0.22.21_linux_amd64.zip -o pb.zip
-    unzip pb.zip
-    rm pb.zip
-    chmod +x pocketbase
+require_root
+log "Installing FTN PocketBase stack (PocketBase ${PB_VERSION})"
+apt-get update
+apt-get install -y ca-certificates curl git unzip python3 python3-venv python3-pip
+
+id ftn >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin ftn
+mkdir -p "$APP" /etc/ftn-pocketbase
+
+if [[ ! -x "$APP/pocketbase" || "${FORCE_PB_DOWNLOAD:-0}" == "1" ]]; then
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  curl -fL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_${PB_ARCH}.zip" -o "$tmp/pb.zip"
+  unzip -qo "$tmp/pb.zip" -d "$tmp/pb"
+  install -m 0755 "$tmp/pb/pocketbase" "$APP/pocketbase"
 fi
 
-# ৪. ওয়েব ফ্রন্টএন্ড ফাইল তৈরি (index.html)
-echo "Creating web frontend files..."
-cat <<EOF > ~/FTN_PocketBase/pb_public/index.html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>FTN PocketBase</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 p-10">
-    <div class="max-w-md mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-xl font-bold mb-4">Upload Note</h1>
-        <input id="title" type="text" placeholder="Note Title" class="w-full border p-2 mb-2">
-        <input id="file" type="file" class="w-full border p-2 mb-4">
-        <button onclick="upload()" class="w-full bg-blue-600 text-white p-2 rounded">Upload</button>
-        <div id="list" class="mt-6"></div>
-    </div>
-    <script>
-        const API = "https://api.familytimenet.com/api";
-        async function upload() {
-            const formData = new FormData();
-            formData.append('title', document.getElementById('title').value);
-            formData.append('attachment', document.getElementById('file').files[0]);
-            await fetch(API + '/collections/notes/records', { method: 'POST', body: formData });
-            alert('Uploaded!');
-            load();
-        }
-        async function load() {
-            const res = await fetch(API + '/collections/notes/records');
-            const data = await res.json();
-            document.getElementById('list').innerHTML = data.items.map(i => 
-                \`<div class='border-b p-2'>\${i.title} - <a class='text-blue-500' href='https://api.familytimenet.com/api/files/\${i.collectionId}/\${i.id}/\${i.attachment}'>Download</a></div>\`
-            ).join('');
-        }
-        load();
-    </script>
-</body>
-</html>
+if [[ ! -d "$APP/.git" ]]; then
+  git clone --depth=1 "$REPO_URL" "$APP/repo"
+else
+  git -C "$APP/repo" pull --ff-only
+fi
+
+# Sync application files without touching runtime data.
+cp -a "$APP/repo/pb_public" "$APP/"
+cp -a "$APP/repo/pb_migrations" "$APP/"
+cp -a "$APP/repo/ai_service" "$APP/"
+cp -a "$APP/repo/deploy/ftn-pocketbase.service" /etc/systemd/system/
+cp -a "$APP/repo/deploy/ftn-ai.service" /etc/systemd/system/
+
+python3 -m venv "$APP/venv"
+"$APP/venv/bin/pip" install --upgrade pip
+"$APP/venv/bin/pip" install -r "$APP/ai_service/requirements.txt"
+
+if [[ ! -f /etc/ftn-pocketbase/ai.env ]]; then
+  cp "$APP/repo/deploy/ai.env.example" /etc/ftn-pocketbase/ai.env
+  chmod 600 /etc/ftn-pocketbase/ai.env
+fi
+
+mkdir -p "$APP/pb_data"
+chown -R ftn:ftn "$APP"
+chmod 700 "$APP/pb_data"
+
+systemctl daemon-reload
+systemctl enable --now ftn-pocketbase.service
+systemctl enable --now ftn-ai.service
+
+log "Waiting for health endpoints"
+for i in {1..30}; do
+  curl -fsS "http://127.0.0.1:${PB_PORT}/api/health" >/dev/null 2>&1 && break || sleep 1
+done
+curl -fsS "http://127.0.0.1:${AI_PORT}/healthz" >/dev/null
+
+cat <<EOF
+
+FTN PocketBase is installed.
+
+Web:       http://127.0.0.1:${PB_PORT}/
+Admin:     http://127.0.0.1:${PB_PORT}/_/
+API:       http://127.0.0.1:${PB_PORT}/api/
+AI:        http://127.0.0.1:${AI_PORT}/healthz
+Data:      ${APP}/pb_data
+Migrations:${APP}/pb_migrations
+
+First login:
+  Open the Admin URL and create the first PocketBase superuser.
+
+Optional Hugging Face:
+  edit /etc/ftn-pocketbase/ai.env, set HF_TOKEN, then:
+  systemctl restart ftn-ai
+
+This installer does not overwrite an existing pb_data directory or configure
+Nginx/Caddy automatically. Put your existing reverse proxy in front of 8090
+and proxy /ai/ to 127.0.0.1:8000.
 EOF
-
-# ৫. Nginx কনফিগারেশন তৈরি (api এবং pocketbase সাবডোমেনের জন্য)
-echo "Configuring Nginx..."
-sudo cat <<EOF > /etc/nginx/sites-available/ftn_pocketbase
-server {
-    listen 80;
-    server_name api.familytimenet.com pocketbase.familytimenet.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
-EOF
-
-# Nginx একটিভেট করা
-sudo ln -sf /etc/nginx/sites-available/ftn_pocketbase /etc/nginx/sites-enabled/
-sudo systemctl restart nginx
-
-# ৬. SSL সেটআপ (Certbot)
-echo "Installing SSL Certificates..."
-sudo certbot --nginx -d api.familytimenet.com -d pocketbase.familytimenet.com --non-interactive --agree-tos -m admin@familytimenet.com
-
-# ৭. PocketBase কে ব্যাকগ্রাউন্ডে চালানোর জন্য Systemd সার্ভিস তৈরি
-echo "Creating Systemd Service..."
-sudo cat <<EOF > /etc/systemd/system/pocketbase.service
-[Unit]
-Description=PocketBase Service
-After=network.target
-
-[Service]
-Type=simple
-User=$(whoami)
-Group=$(whoami)
-WorkingDirectory=/home/$(whoami)/FTN_PocketBase
-ExecStart=/home/$(whoami)/FTN_PocketBase/pocketbase serve --http="127.0.0.1:8090"
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# সার্ভিস চালু করা
-sudo systemctl daemon-reload
-sudo systemctl enable pocketbase
-sudo systemctl start pocketbase
-
-echo "------------------------------------------------"
-echo "Setup Complete!"
-echo "Dashboard: https://pocketbase.familytimenet.com/_/"
-echo "API Endpoint: https://api.familytimenet.com"
-echo "------------------------------------------------"
