@@ -1,32 +1,43 @@
-# FTN PocketBase
+# FTN Local
 
-FTN PocketBase is a lightweight, web-first FTN workspace built around PocketBase, a small FastAPI/Pydantic service, browser-side AES-GCM encryption, and optional Hugging Face inference.
+FTN Local is the web-first local workspace for Family Time Network. It combines PocketBase, a small authenticated FastAPI/Pydantic service, browser-side Web Crypto, secure notes, and optional Hugging Face inference.
 
-## What is complete
+## Current modules
 
-- PocketBase 0.40.x deployment path
-- Versioned `pb_migrations/` for `ftn_users`, `notes`, and `ai_tasks`
-- Authenticated web console
-- Secure Notes with client-side AES-GCM encryption
-- Encrypted attachment upload/download
-- Dedicated Encoder / Decoder using Web Crypto
-- Pydantic validation API with health endpoint
-- Optional server-side Hugging Face proxy; token is never placed in the browser
-- systemd units for PocketBase and AI service
+- FTN Local Dashboard
+- Cyber Security
+  - Encoder / Decoder
+  - AES-GCM text packages
+  - SHA-256 hashing/checksum
+  - File encrypt/decrypt with `.ftnenc`
+- Secure Notes
+  - Client-side AES-GCM
+  - Protected PocketBase attachments
+  - Independent salt/IV for note title and file payload
+- AI Core
+  - Pydantic validation service
+  - Authenticated local AI API
+  - Optional server-side Hugging Face proxy
+- Network module foundation for DNS, devices and monitoring integrations
+- PocketBase Admin integration
+- systemd deployment
 - Caddy reverse-proxy example
-- No external telemetry and no secrets committed to the repository
+- CI checks for shell, Python, frontend JavaScript and PocketBase migrations
 
 ## Architecture
 
 ```text
-Browser
-  |
-  +--> PocketBase :8090  --> SQLite / pb_data
-  |
-  +--> /ai/* ------------> FastAPI :8000
+FTN Local Web
+     |
+     +--> PocketBase :8090 --> SQLite / pb_data
+     |
+     +--> /ai/* -------> FastAPI :8000
                               |
-                              +--> optional Hugging Face API
+                              +--> local PocketBase auth
+                              +--> optional Hugging Face
 ```
+
+The AI API is not an open unauthenticated endpoint. The browser sends the current FTN user session token and the local AI service validates it against PocketBase.
 
 ## Deploy
 
@@ -37,37 +48,49 @@ curl -fsSL https://raw.githubusercontent.com/beparykamrul-dev/FTN_PocketBase/mai
 sudo bash /tmp/FTN_PocketBase.sh
 ```
 
-The installer does not delete or recreate an existing `pb_data` directory.
+The installer is idempotent: it can update the application code without deleting `pb_data`. It also installs the versioned migrations and restarts the services after an update.
 
-After startup, create the first PocketBase superuser at `/_/`. The committed migration is then applied automatically by PocketBase on startup.
+After startup, create the first PocketBase superuser at `/_/`, then create an FTN Local user from the web console.
 
 ## Reverse proxy
 
-If FTN already uses Caddy, use `deploy/Caddyfile.example` as the starting point. Keep PocketBase bound to `127.0.0.1:8090` and the AI service bound to `127.0.0.1:8000`.
+Use `deploy/Caddyfile.example` as the starting point when FTN already has Caddy. Keep PocketBase on `127.0.0.1:8090` and FastAPI on `127.0.0.1:8000`.
+
+PocketBase's admin dashboard should be restricted by the existing FTN access-control layer rather than exposed openly.
 
 ## Hugging Face
 
-Optional only. Put the server-side token in `/etc/ftn-pocketbase/ai.env`:
+Optional. Put the provider token only on the server:
 
 ```text
 HF_TOKEN=...
 AI_PORT=8000
+PB_URL=http://127.0.0.1:8090
 ```
 
-Then:
+Then restart the AI service:
 
 ```bash
 sudo systemctl restart ftn-ai
 ```
 
-The browser sends only model and prompt data to the local AI service; the token remains server-side.
+The token is never embedded in the frontend or committed to Git.
 
-## Important security notes
+## Security model
 
-The old project scripts used Base64 with a static salt and called it encryption. That was not cryptographic protection. The current console uses Web Crypto AES-GCM with a random salt, random IVs, and PBKDF2 key derivation. The passphrase is not stored or transmitted.
+The legacy project used Base64 with a static salt and described it as encryption. That was not cryptographic protection. FTN Local now uses Web Crypto AES-GCM with random salts and IVs plus PBKDF2-SHA-256 key derivation. Passphrases are not stored by the application.
 
-PocketBase's superuser dashboard must not be exposed directly to the public Internet without appropriate access controls. Keep `/_/` restricted through the existing FTN reverse-proxy/security layer.
+File encryption stores its own salt and IV so file payloads do not depend on the note-title encryption parameters. Existing notes without `file_salt` remain readable through the compatibility fallback when possible.
 
-## Data
+## Data and privacy
 
-Runtime data belongs in `pb_data/` and is intentionally not committed. Migrations are committed and are the source-controlled schema definition.
+Runtime data lives in `pb_data/` and is ignored by Git. No application telemetry is exported by the project. Provider integrations are optional and are isolated behind the local service.
+
+## Validation
+
+GitHub Actions validates:
+
+- Python compilation
+- shell syntax
+- frontend JavaScript syntax
+- PocketBase migration execution against a clean SQLite database
