@@ -1,0 +1,20 @@
+[Unit]
+Description=FTN AI Service
+After=network.target
+
+[Service]
+Type=simple
+User=ftn
+Group=ftn
+WorkingDirectory=/opt/ftn-pocketbase/ai_service
+EnvironmentFile=-/etc/ftn-pocketbase/ai.env
+ExecStart=/opt/ftn-pocketbase/venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
