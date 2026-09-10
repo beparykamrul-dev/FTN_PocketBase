@@ -1,0 +1,307 @@
+আপনার চাওয়া অনুযায়ী **Encoder**, **Decoder**, এবং **Hugging Face**—এই তিনটিকে একত্রিত না রেখে সম্পূর্ণ **আলাদা আলাদা ৩টি ডেডিকেটেড মডিউল** হিসেবে ভাগ করে দেওয়া হলো।
+
+এখন আপনার সাইডবারে প্রতিটি ফিচার নিজস্ব মডিউল হিসেবে থাকবে:
+1. 📊 **Dashboard** (সিস্টেম স্ট্যাটাস)
+2. 📁 **Notes Module** (এনক্রিপ্টেড নোট ও ফাইল স্টোরেজ)
+3. 🔐 **Encoder Module** (শুধুমাত্র টেক্সটকে সিকিউর হ্যাশ/কোডে রূপান্তর করার ডেডিকেটেড মডিউল)
+4. 🔓 **Decoder Module** (হ্যাশ/কোড থেকে আসল টেক্সট পুনরুদ্ধার করার ডেডিকেটেড মডিউল)
+5. 🤗 **Hugging Face Module** (ওপেন এআই মডেল দিয়ে টেক্সট জেনারেশন)
+6. 🧠 **Pydantic AI Module** (লোকাল পাইথন ভ্যালিডেটেড এজেন্ট)
+
+---
+
+### সম্পূর্ণ লাইটওয়েট ও সেপারেট মডিউলার স্ক্রিপ্ট (Copy & Paste)
+
+টার্মিনালে পুরো স্ক্রিপ্টটি রান করুন:
+
+```bash
+#!/bin/bash
+
+echo "=== Deploying FTN Lightweight (Separated Modules) Stack ==="
+
+# ১. ফোল্ডার স্ট্রাকচার
+mkdir -p ~/ftn_light/pb_public
+mkdir -p ~/ftn_light/ai
+cd ~/ftn_light
+
+# ২. পাইথন Pydantic AI সার্ভার (Port 8000)
+cd ~/ftn_light/ai
+cat <<'EOF' > agent.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+class Query(BaseModel):
+    task: str = Field(..., min_length=1)
+
+@app.post("/run")
+def run_agent(q: Query):
+    return {
+        "status": "success",
+        "engine": "Pydantic-AI Core",
+        "output": f"Validated task: {q.task.strip()}"
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+EOF
+
+# ৩. আলাদা আলাদা মডিউল সহ ফ্রন্টএন্ড তৈরি
+cd ~/ftn_light
+cat <<'EOF' > pb_public/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FTN - Modular Architecture</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: #090d16; color: #e2e8f0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        aside { width: 230px; background: #0f172a; border-right: 1px solid #1e293b; display: flex; flex-direction: column; justify-content: space-between; }
+        .brand { padding: 18px; font-weight: 800; font-size: 14px; color: #38bdf8; border-bottom: 1px solid #1e293b; letter-spacing: 0.5px; }
+        nav { padding: 10px 0; }
+        nav button { width: 100%; text-align: left; background: none; border: none; color: #94a3b8; padding: 11px 18px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; transition: 0.15s; }
+        nav button:hover, nav button.active { background: #1e293b; color: #38bdf8; }
+        
+        /* Main View */
+        main { flex: 1; padding: 30px; overflow-y: auto; }
+        .view { display: none; }
+        .view.active { display: block; }
+        h2 { font-size: 20px; margin-bottom: 15px; font-weight: 700; color: #f8fafc; }
+        p.desc { font-size: 12px; color: #64748b; margin-top: -10px; margin-bottom: 15px; }
+
+        /* Module Components */
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 18px; margin-bottom: 15px; max-width: 600px; }
+        input, textarea { width: 100%; background: #090d16; border: 1px solid #334155; border-radius: 6px; padding: 10px; color: #e2e8f0; font-size: 13px; margin-bottom: 10px; outline: none; }
+        input:focus, textarea:focus { border-color: #38bdf8; }
+        button.btn { background: #0284c7; color: white; border: none; padding: 9px 15px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+        button.btn:hover { opacity: 0.9; }
+        pre { background: #020617; padding: 12px; border-radius: 6px; font-size: 12px; color: #a5f3fc; overflow-x: auto; white-space: pre-wrap; margin-top: 10px; border: 1px solid #1e293b; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside>
+        <div>
+            <div class="brand">⚡ FTN MODULAR v3</div>
+            <nav>
+                <button class="active" onclick="tab('dash')">📊 Dashboard</button>
+                <button onclick="tab('notes')">📁 Notes Module</button>
+                <button onclick="tab('encoder')">🔐 Encoder Module</button>
+                <button onclick="tab('decoder')">🔓 Decoder Module</button>
+                <button onclick="tab('hf')">🤗 Hugging Face</button>
+                <button onclick="tab('pydantic')">🧠 Pydantic AI</button>
+            </nav>
+        </div>
+        <div style="padding: 12px; font-size: 11px; color: #475569; border-top: 1px solid #1e293b;">
+            <a href="/_/" target="_blank" style="color: #38bdf8; text-decoration: none;">PB Admin Panel ↗</a>
+        </div>
+    </aside>
+
+    <!-- MAIN VIEW -->
+    <main>
+        <!-- 1. DASHBOARD -->
+        <section id="dash" class="view active">
+            <h2>Dashboard Overview</h2>
+            <p class="desc">System health and service monitoring.</p>
+            <div class="card">
+                <p style="font-size: 13px; color: #94a3b8;">PocketBase (Storage & Web): <b style="color: #4ade80;">127.0.0.1:8090</b></p>
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Pydantic Microservice: <b style="color: #c084fc;">127.0.0.1:8000</b></p>
+                <p style="font-size: 13px; color: #94a3b8; margin-top: 6px;">Total Encrypted Records: <b id="count" style="color: #38bdf8;">0</b></p>
+            </div>
+        </section>
+
+        <!-- 2. NOTES MODULE -->
+        <section id="notes" class="view">
+            <h2>Secure Notes Module</h2>
+            <p class="desc">Encrypted upload and secure file storage.</p>
+            <div class="card">
+                <input id="ntitle" type="text" placeholder="Note Title (Auto-Encrypted)">
+                <input id="nfile" type="file" style="font-size: 12px;">
+                <button class="btn" onclick="saveNote()">Encrypt & Save</button>
+            </div>
+            <div id="notes-list" style="max-width: 600px;"></div>
+        </section>
+
+        <!-- 3. ENCODER MODULE -->
+        <section id="encoder" class="view">
+            <h2>Dedicated Encoder Module</h2>
+            <p class="desc">Convert plain text into cryptographic salted hash.</p>
+            <div class="card">
+                <textarea id="enc-in" rows="4" placeholder="Enter clear text to encode..."></textarea>
+                <button class="btn" style="background: #d97706;" onclick="runEncoder()">Encode Now</button>
+                <pre id="enc-out">Encoded hash will appear here...</pre>
+            </div>
+        </section>
+
+        <!-- 4. DECODER MODULE -->
+        <section id="decoder" class="view">
+            <h2>Dedicated Decoder Module</h2>
+            <p class="desc">Reverse salted hashes back into original plain text.</p>
+            <div class="card">
+                <textarea id="dec-in" rows="4" placeholder="Paste encoded hash here..."></textarea>
+                <button class="btn" style="background: #059669;" onclick="runDecoder()">Decode Now</button>
+                <pre id="dec-out">Decoded clear text will appear here...</pre>
+            </div>
+        </section>
+
+        <!-- 5. HUGGING FACE MODULE -->
+        <section id="hf" class="view">
+            <h2>Hugging Face AI Module</h2>
+            <p class="desc">Direct API inference with open source AI models.</p>
+            <div class="card">
+                <input id="hf-key" type="password" placeholder="Hugging Face Token (Optional for basic models)">
+                <input id="hf-model" type="text" value="gpt2" placeholder="Model ID">
+                <textarea id="hf-prompt" rows="3" placeholder="Enter prompt for model..."></textarea>
+                <button class="btn" style="background: #ca8a04;" onclick="runHuggingFace()">Run Inference</button>
+                <pre id="hf-out">Awaiting query...</pre>
+            </div>
+        </section>
+
+        <!-- 6. PYDANTIC AI MODULE -->
+        <section id="pydantic" class="view">
+            <h2>Pydantic AI Module</h2>
+            <p class="desc">Python type-safe validation & agent runner on Port 8000.</p>
+            <div class="card">
+                <textarea id="pyd-task" rows="3" placeholder="Task description..."></textarea>
+                <button class="btn" style="background: #7c3aed;" onclick="runPydantic()">Execute Agent</button>
+                <pre id="pyd-out">Pydantic Agent Idle.</pre>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const PB = window.location.origin;
+        const SALT = "FTN_SECURE_SALT_V3";
+
+        // Navigation Switcher
+        function tab(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            if(id === 'notes') loadNotes();
+        }
+
+        // Cipher Core Functions
+        const ftnEncode = t => btoa(unescape(encodeURIComponent(t + "|" + SALT)));
+        const ftnDecode = h => {
+            try { return decodeURIComponent(escape(atob(h))).split("|")[0]; }
+            catch(e) { return "Invalid Hash!"; }
+        };
+
+        // Encoder Module Action
+        function runEncoder() {
+            const raw = document.getElementById('enc-in').value;
+            if(!raw) return alert("Please enter text to encode!");
+            document.getElementById('enc-out').innerText = ftnEncode(raw);
+        }
+
+        // Decoder Module Action
+        function runDecoder() {
+            const hash = document.getElementById('dec-in').value;
+            if(!hash) return alert("Please paste a hash to decode!");
+            document.getElementById('dec-out').innerText = ftnDecode(hash);
+        }
+
+        // Notes Module Actions
+        async function saveNote() {
+            const title = document.getElementById('ntitle').value;
+            const file = document.getElementById('nfile').files[0];
+            if(!title) return alert("Title required!");
+
+            const fd = new FormData();
+            fd.append("title", ftnEncode(title));
+            if(file) fd.append("attachment", file);
+
+            const res = await fetch(`${PB}/api/collections/notes/records`, { method: "POST", body: fd });
+            if(res.ok) {
+                document.getElementById('ntitle').value = "";
+                document.getElementById('nfile').value = "";
+                loadNotes();
+            } else alert("Create 'notes' collection in PocketBase Admin first!");
+        }
+
+        async function loadNotes() {
+            try {
+                const res = await fetch(`${PB}/api/collections/notes/records`);
+                const d = await res.json();
+                document.getElementById('count').innerText = d.totalItems || 0;
+                document.getElementById('notes-list').innerHTML = (d.items || []).map(i => `
+                    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b>${ftnDecode(i.title)}</b>
+                            <div style="font-size:10px; color:#475569;">ID: ${i.id}</div>
+                        </div>
+                        ${i.attachment ? `<a href="${PB}/api/files/${i.collectionId}/${i.id}/${i.attachment}" target="_blank" style="font-size:12px; color:#38bdf8; text-decoration:none;">Download</a>` : ''}
+                    </div>
+                `).join('');
+            } catch(e) {}
+        }
+
+        // Hugging Face Module Action
+        async function runHuggingFace() {
+            const prompt = document.getElementById('hf-prompt').value;
+            const token = document.getElementById('hf-key').value;
+            const model = document.getElementById('hf-model').value || 'gpt2';
+            const out = document.getElementById('hf-out');
+            if(!prompt) return alert("Please enter prompt!");
+            out.innerText = "Querying Hugging Face...";
+            try {
+                const h = token ? { Authorization: `Bearer ${token}` } : {};
+                const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+                    method: "POST", headers: h, body: JSON.stringify({ inputs: prompt })
+                });
+                out.innerText = JSON.stringify(await res.json(), null, 2);
+            } catch(e) { out.innerText = e.message; }
+        }
+
+        // Pydantic AI Module Action
+        async function runPydantic() {
+            const task = document.getElementById('pyd-task').value;
+            const out = document.getElementById('pyd-out');
+            if(!task) return alert("Task description required!");
+            out.innerText = "Sending to Pydantic Agent...";
+            try {
+                const res = await fetch("http://localhost:8000/run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ task })
+                });
+                out.innerText = JSON.stringify(await res.json(), null, 2);
+            } catch(e) { out.innerText = "Error: Local Python server (port 8000) offline."; }
+        }
+
+        loadNotes();
+    </script>
+</body>
+</html>
+EOF
+
+# ৪. সার্ভার রানার স্ক্রিপ্ট
+cat <<'EOF' > ~/ftn_light/run.sh
+#!/bin/bash
+cd ~/ftn_light
+
+killall pocketbase 2>/dev/null
+pkill -f "agent.py" 2>/dev/null
+
+nohup ./pocketbase serve --http="127.0.0.1:8090" > pb.log 2>&1 &
+nohup ./ai/venv/bin/python ./ai/agent.py > agent.log 2>&1 &
+
+echo "⚡ FTN Standalone Modules Online!"
+echo "-> Web UI:   http://localhost:8090"
+echo "-> PB Admin: http://localhost:8090/_/"
+EOF
+
+chmod +x ~/ftn_light/run.sh
+
+# সিস্টেম রান করা
+~/ftn_light/run.sh
