@@ -33,7 +33,7 @@ migrate((app) => {
       { type: "text", name: "mime", max: 160 },
       { type: "number", name: "size", min: 0, max: 104857600 },
     ],
-    indexes: ["CREATE INDEX idx_notes_user_created ON notes (user, created DESC)"],
+    indexes: ["CREATE INDEX idx_notes_user_created ON notes (user)"],
   });
   app.save(notes);
 
@@ -51,7 +51,7 @@ migrate((app) => {
       { type: "text", name: "status", required: true, max: 40 },
       { type: "json", name: "result" },
     ],
-    indexes: ["CREATE INDEX idx_ai_tasks_user_created ON ai_tasks (user, created DESC)"],
+    indexes: ["CREATE INDEX idx_ai_tasks_user_created ON ai_tasks (user)"],
   });
   app.save(tasks);
 }, (app) => {
