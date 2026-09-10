@@ -1,0 +1,10 @@
+pb_data/
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!deploy/ai.env.example
+__pycache__/
+*.pyc
+venv/
