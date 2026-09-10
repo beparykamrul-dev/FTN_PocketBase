@@ -1,0 +1,12 @@
+# Replace the hostname with the FTN hostname you actually use.
+pocketbase.familytimenet.com {
+    encode zstd gzip
+
+    handle_path /ai/* {
+        reverse_proxy 127.0.0.1:8000
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:8090
+    }
+}
