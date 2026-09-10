@@ -1,0 +1,11 @@
+/* FTN Local UX extension — additive, no framework dependency */
+:root{--ftn-focus:#38bdf8;--ftn-surface:#0b1928;--ftn-border:#23445b}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--ftn-focus);outline-offset:2px}
+.file-row{transition:transform .16s ease,border-color .16s ease,background .16s ease}.file-row:hover{transform:translateY(-1px);border-color:var(--ftn-border)}
+.file-row.selected{border-color:var(--ftn-focus);box-shadow:0 0 0 2px #38bdf814 inset}
+.file-actions{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}.file-actions .btn{padding:6px 8px;font-size:11px}
+.file-inspector{position:fixed;right:18px;bottom:18px;width:min(390px,calc(100vw - 36px));z-index:50;background:#0a1724;border:1px solid #28516b;border-radius:14px;padding:16px;box-shadow:0 20px 70px #000b}.file-inspector h3{margin:0 0 10px}.file-inspector .kpi{font-size:11px}.inspector-close{float:right;border:0;background:transparent;color:#9bb0c2;font-size:18px}
+.breadcrumb{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:-2px 0 10px;color:#8da4b8;font-size:11px}.breadcrumb button{border:0;background:transparent;color:#38bdf8;padding:0}.browser-empty{padding:30px;text-align:center;border:1px dashed #24465c;border-radius:12px;color:#7891a5}
+.upload-progress{height:5px;background:#06111c;border-radius:999px;overflow:hidden;margin-top:8px}.upload-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#38bdf8,#28d17c);transition:width .2s ease}
+.ftn-toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;z-index:100;background:#10283b;border:1px solid #28516b;color:#fff;border-radius:10px;padding:9px 13px;font-size:12px;box-shadow:0 12px 40px #0008;transition:.2s}.ftn-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:760px){.file-inspector{right:10px;bottom:10px;width:calc(100vw - 20px)}}
