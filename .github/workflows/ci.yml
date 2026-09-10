@@ -43,6 +43,8 @@ jobs:
                   import subprocess
                   subprocess.run(['node','--check',str(out)],check=True)
           PY
+      - name: FTN security regression checks
+        run: python tests/ftn_security_check.py
       - name: PocketBase migration smoke test
         run: |
           curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.40.3/pocketbase_0.40.3_linux_amd64.zip -o /tmp/pb.zip
