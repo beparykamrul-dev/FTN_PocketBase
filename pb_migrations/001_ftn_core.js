@@ -29,6 +29,7 @@ migrate((app) => {
       { type: "text", name: "salt", required: true, max: 256 },
       { type: "text", name: "iv", required: true, max: 256 },
       { type: "file", name: "attachment", maxSelect: 1, maxSize: 10485760, protected: true },
+      { type: "text", name: "file_iv", max: 256 },
       { type: "text", name: "mime", max: 160 },
       { type: "number", name: "size", min: 0, max: 104857600 },
     ],
