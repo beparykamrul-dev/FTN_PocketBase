@@ -18,17 +18,31 @@ jobs:
         run: python -m py_compile ai_service/app.py
       - name: Shell syntax
         run: bash -n FTN_PocketBase.sh
-      - name: HTML JavaScript syntax
+      - name: JavaScript syntax
         run: |
-          node --check <(python - <<'PY'
+          node --check pb_public/ftn-note-editor.js
+          node --check pb_public/ftn-workspace.js
+          node --check pb_public/ftn-preview.js
+          node --check pb_public/ftn-ux.js
+          node --check pb_public/pwa.js
+          node --check pb_public/sw.js
+      - name: HTML inline JavaScript syntax
+        run: |
+          python - <<'PY'
           from pathlib import Path
           import re
-          s=Path('pb_public/index.html').read_text()
-          m=re.search(r'<script>([\s\S]*?)</script>', s)
-          assert m, 'script block missing'
-          print(m.group(1))
+          files=['pb_public/index.html','pb_public/workspace.html','pb_public/note-editor.html']
+          for path in files:
+              s=Path(path).read_text()
+              blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>',s)
+              if not blocks:
+                  raise SystemExit(f'no inline script block found: {path}')
+              for i,block in enumerate(blocks):
+                  out=Path(f'/tmp/ftn-inline-{i}.js')
+                  out.write_text(block)
+                  import subprocess
+                  subprocess.run(['node','--check',str(out)],check=True)
           PY
-          )
       - name: PocketBase migration smoke test
         run: |
           curl -fsSL https://github.com/pocketbase/pocketbase/releases/download/v0.40.3/pocketbase_0.40.3_linux_amd64.zip -o /tmp/pb.zip
