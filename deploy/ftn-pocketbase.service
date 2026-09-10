@@ -1,0 +1,20 @@
+[Unit]
+Description=FTN PocketBase
+After=network.target
+
+[Service]
+Type=simple
+User=ftn
+Group=ftn
+WorkingDirectory=/opt/ftn-pocketbase
+ExecStart=/opt/ftn-pocketbase/pocketbase serve --http=127.0.0.1:8090 --dir=/opt/ftn-pocketbase/pb_data --migrationsDir=/opt/ftn-pocketbase/pb_migrations
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/ftn-pocketbase/pb_data
+
+[Install]
+WantedBy=multi-user.target
