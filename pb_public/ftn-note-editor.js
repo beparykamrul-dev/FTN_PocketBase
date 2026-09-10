@@ -13,6 +13,7 @@
   async function decryptAttachment(blob,pass){const pkg=JSON.parse(await blob.text());if(pkg.format!=='FTN-FILE-AES-GCM'||pkg.version!==1)throw Error('Unsupported FTN attachment format');const k=await key(pass,unb64(pkg.salt));const data=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(pkg.iv)},k,unb64(pkg.data));if(Number(pkg.size)>=0&&Number(pkg.size)!==data.byteLength)throw Error('Attachment integrity check failed');return {blob:new Blob([data],{type:pkg.type||'application/octet-stream'}),name:pkg.name||'decrypted-file',type:pkg.type||'application/octet-stream',size:Number(pkg.size)||data.byteLength}}
   async function fileToken(){const r=await fetch(PB+'/api/files/token',{method:'POST',headers:{Authorization:token()}}),d=await r.json().catch(()=>({}));if(!r.ok||!d.token)throw Error(d.message||'Protected file token unavailable');return d.token}
   async function fetchAttachment(id,filename,pass){if(!token())throw Error('Sign in required');const ft=await fileToken();const url=PB+'/api/files/notes/'+encodeURIComponent(id)+'/'+encodeURIComponent(filename)+'?token='+encodeURIComponent(ft);const r=await fetch(url);if(!r.ok)throw Error('Encrypted attachment download failed');return decryptAttachment(await r.blob(),pass)}
+  function safeAttachmentName(){return 'attachment.ftnenc'}
   async function save(note,{title,body,pass,folder='',tags='',favorite=false,archived=false,attachment=null,removeAttachment=false}){
     if(!token()||!user().id)throw Error('Sign in required');
     const t=await seal(title,pass),b=await seal(body,pass);
@@ -20,7 +21,7 @@
     if(removeAttachment)payload.attachment='';
     const url=note?'/api/collections/notes/records/'+encodeURIComponent(note):'/api/collections/notes/records';
     if(!attachment){const r=await fetch(PB+url,{method:note?'PATCH':'POST',headers:H(),body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'Note save failed');return d}
-    const form=new FormData();Object.entries(payload).forEach(([k,v])=>form.append(k,String(v)));form.append('attachment',await encryptAttachment(attachment,pass),attachment.name+'.ftnenc');
+    const form=new FormData();Object.entries(payload).forEach(([k,v])=>form.append(k,String(v)));form.append('attachment',await encryptAttachment(attachment,pass),safeAttachmentName());
     const r=await fetch(PB+url,{method:note?'PATCH':'POST',headers:{Authorization:token()},body:form}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'Note attachment save failed');return d;
   }
   async function load(id,pass){const r=await fetch(PB+'/api/collections/notes/records/'+encodeURIComponent(id),{headers:{Authorization:token()}}),n=await r.json();if(!r.ok)throw Error(n.message||'Note load failed');return {id:n.id,title:await openBox(n.title_cipher,n.salt,n.iv,pass),body:n.body_cipher?await openBox(n.body_cipher,n.body_salt,n.body_iv,pass):'',folder:n.folder||'',tags:n.tags||'',favorite:!!n.favorite,archived:!!n.archived,attachment:n.attachment||'',created:n.created,updated:n.updated};}
