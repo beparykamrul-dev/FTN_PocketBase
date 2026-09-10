@@ -7,19 +7,30 @@ def read(path):
     return (ROOT / path).read_text(encoding='utf-8')
 
 note = read('pb_public/ftn-note-editor.js')
+v2 = read('pb_public/ftn-file-v2.js')
 sw = read('pb_public/sw.js')
 gitignore = read('.gitignore')
 manifest = read('pb_public/manifest.webmanifest')
 
 # Encrypted attachments must not leak the original client filename through multipart metadata.
 assert "safeAttachmentName(){return 'attachment.ftnenc'}" in note
-assert "form.append('attachment',await encryptAttachment(attachment,pass),safeAttachmentName())" in note
+assert "form.append('attachment',await encryptAttachment(attachment,pass,onProgress),safeAttachmentName())" in note
 assert "form.append('attachment',attachment,attachment.name)" not in note
+
+# v2 must use per-chunk AES-GCM IVs and authenticate chunk metadata.
+assert "version:2" in v2
+assert "crypto.getRandomValues(new Uint8Array(16))" in v2
+assert "crypto.getRandomValues(new Uint8Array(8))" in v2
+assert "new DataView(iv.buffer).setUint32(8,index,false)" in v2
+assert "additionalData:aad" in v2
+assert "file.slice(i*CHUNK" in v2
+assert "file.arrayBuffer()" not in v2
 
 # The service worker must never cache PocketBase/API or admin responses.
 assert "u.pathname.startsWith('/api/')" in sw
 assert "u.pathname.startsWith('/_/')" in sw
 assert "if(!isSameOrigin(u)||isApi(u))return;" in sw
+assert "'/ftn-file-v2.js'" in sw
 
 # Plaintext note fields/passphrases must not be persisted to browser localStorage.
 for forbidden in ('localStorage.setItem(\'title\'', 'localStorage.setItem(\'body\'', 'localStorage.setItem(\'pass\'', 'localStorage.setItem(\'passphrase\''):
