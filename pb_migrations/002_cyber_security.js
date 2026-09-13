@@ -18,9 +18,9 @@ migrate((app) => {
       { type: "text", name: "event", required: true, max: 80 },
       { type: "text", name: "status", required: true, max: 40 },
       { type: "text", name: "target", max: 200 },
-      { type: "json", name: "details" },
+      { type: "json", name: "details" }
     ],
-    indexes: ["CREATE INDEX idx_security_events_user_created ON security_events (user, created DESC)"],
+    indexes: ["CREATE INDEX idx_security_events_user ON security_events (user)"]
   });
   try { app.save(events); } catch (_) {}
 }, (app) => {
